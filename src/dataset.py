@@ -228,6 +228,7 @@ class TUMVICali(Dataset):
             seq['imu'] = torch.Tensor(np.loadtxt(f'{processed_data_dir}/{name}_imu.csv', delimiter=',')).cuda()[:-1]
             gt = torch.Tensor(np.loadtxt(f'{processed_data_dir}/{name}_gt.csv', delimiter=',')).cuda()
             seq['ps'], seq['qs'] = gt[:, 1:4], gt[:, 4:8]
+            seq["vs"] = (seq["ps"][1:] - seq["ps"][:-1]) / self.dt
             seq['rots'] = SO3.from_quaternion(seq['qs'], ordering='wxyz')
             seq['rotsT'] = bmtm(seq['rots'][:-int(T/2)], seq['rots'][int(T/2):])
 
@@ -275,10 +276,10 @@ class TUMVICali(Dataset):
         X = self.data[name]['imu'][start:self.train_length + start].cuda()
 
         return X, \
-            (None, \
+            (torch.tensor(0).cuda(), \
              self.data[name]['rots'][start:self.train_length+start].cuda(),  \
              self.data[name]['rotsT'][start:self.train_length+start].cuda(), \
-             None, \
+             torch.tensor(0).cuda(), \
              self.data[name]['ps'][start+1:self.train_length+start+1].cuda())
 
 class TUMVIUncali(Dataset):
@@ -340,7 +341,6 @@ class TUMVIUncali(Dataset):
 
         return torch.matmul(torch.inverse(self.multiplier), (x - (bias + noise)).transpose(0, 1)).transpose(0, 1)
 
-
     def interpolate(self, x, t, t_int):
         """
         Interpolate ground truth at the sensor timestamps
@@ -399,6 +399,7 @@ class TUMVIUncali(Dataset):
             seq['imu'] = self.add_error(torch.Tensor(np.loadtxt(f'{processed_data_dir}/{name}_imu.csv', delimiter=',')).cuda()[:-1])
             gt = torch.Tensor(np.loadtxt(f'{processed_data_dir}/{name}_gt.csv', delimiter=',')).cuda()
             seq['ps'], seq['qs'] = gt[:, 1:4], gt[:, 4:8]
+            seq["vs"] = (seq["ps"][1:] - seq["ps"][:-1]) / self.dt
             seq['rots'] = SO3.from_quaternion(seq['qs'], ordering='wxyz')
             seq['rotsT'] = bmtm(seq['rots'][:-int(T/2)], seq['rots'][int(T/2):])
 
@@ -446,8 +447,8 @@ class TUMVIUncali(Dataset):
         X = self.data[name]['imu'][start:self.train_length + start].cuda()
 
         return X, \
-            (None, \
+            (torch.tensor(0).cuda(), \
              self.data[name]['rots'][start:self.train_length+start].cuda(),  \
              self.data[name]['rotsT'][start:self.train_length+start].cuda(), \
-             None, \
+             torch.tensor(0).cuda(), \
              self.data[name]['ps'][start+1:self.train_length+start+1].cuda())
